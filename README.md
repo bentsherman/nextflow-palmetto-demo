@@ -336,6 +336,15 @@ Fortunately, the Palmetto cluster now has a feature called the [Login VM](https:
 
 For running Nextflow pipelines, the best way to use the login VM is through __RDP__ rather than __SSH__, because your VM will not be killed if you have something running on RDP. This way, when you want to launch a long-running Nextflow pipeline, you can request a VM, login to the VM through an RDP client, launch the Nextflow pipeline in a terminal, and then you can disconnect from the VM and your pipeline will still be running on Palmetto. That way your local machine doesn't have to stay connected while the pipeline is running, you can turn it off for the weekend and your code will keep working for you! I have used this method to launch pipelines that run for a month or longer. For instructions on how to use the login VM through RDP, consult the login VM documentation linked above.
 
+## Using Storage Responsibly
+
+Like most HPC systems, Palmetto a home directory and scratch directories. Your home directory is permanent storage but you only get 100 GB and you're not supposed to run jobs in the home directory because everyone has to share it. On the other hand, the scratch storage is ~100 TB but it is not permanent; files older than 30 days get deleted. So we would like our jobs to use scratch storage while they run, but we need to make sure that our important data ends up in our home directory so that we don't have to worry about it getting deleted. We can configure Nextflow to do this quite easily:
+
+1. Add this line to your `.bashrc`: `export NXF_WORK=/scratch1/${USER}/work`
+2. Do everything else in your home directory
+
+This way, all of your code, input data, and final output data will be in your home directory, but the jobs that Nextflow submits will always run in scratch storage. Nextflow will only use the home directory to save published output files, logs, and some cache metadata. And all of the intermediate files created by Nextflow jobs will be automatically deleted by the system as they age. You never even have to touch your scratch directory!
+
 ## Running the Nextflow Pipeline
 
 To run our new pipeline, simply do:
