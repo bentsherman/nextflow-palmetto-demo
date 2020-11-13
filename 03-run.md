@@ -39,9 +39,11 @@ So here's the full process: login to JupyterLab, open a terminal, login to your 
 Like most HPC systems, Palmetto a home directory and scratch directories. Your home directory is permanent storage but you only get 100 GB and you're not supposed to run jobs in the home directory because everyone has to share it. On the other hand, the scratch storage is ~100 TB but it is not permanent; files older than 30 days get deleted. So we would like our jobs to use scratch storage while they run, but we need to make sure that our important data ends up in our home directory so that we don't have to worry about it getting deleted. We can configure Nextflow to do this quite easily:
 
 1. Add this line to your `.bashrc`: `export NXF_WORK="/scratch1/${USER}/work"`
-2. Do everything else in your home directory (or your group's zfs directory)
+2. Do everything else in your home directory
 
 This way, all of your code, input data, and final output data will be in your home directory, but the jobs that Nextflow submits will always run in scratch storage. Nextflow will only use the home directory to save published output files, logs, and some cache metadata. And all of the intermediate files created by Nextflow jobs will be automatically deleted by the system as they age. You never even have to touch your scratch directory!
+
+_Note: If your research group has a zfs directory in `/zfs/lasernode`, you can also use your personal directory in there in lieu of your home directory._
 
 ## Running the Nextflow Pipeline
 
