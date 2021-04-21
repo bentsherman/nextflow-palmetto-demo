@@ -4,7 +4,7 @@
 
 # setup environment
 module purge
-module add anaconda3/5.1.0
+module load anaconda3/5.1.0-gcc
 
 KINC_PATH="${PBS_O_WORKDIR}/KINC"
 

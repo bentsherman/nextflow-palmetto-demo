@@ -6,7 +6,6 @@ In this section we will show you how to take a workflow, which has been implemen
 
 Installing Nextflow is very easy, you can do it right from your home directory:
 ```bash
-module add java/1.8.0
 curl -s https://get.nextflow.io | bash
 
 ./nextflow run hello
@@ -16,7 +15,7 @@ You can then do something like this to run `nextflow` like a normal program:
 ```bash
 mkdir ~/bin
 mv ./nextflow ~/bin
-export PATH=$PATH:$HOME/bin
+export PATH=${PATH}:${HOME}/bin
 
 nextflow run hello
 ```
@@ -25,10 +24,10 @@ Alternatively, you can use the `install-nextflow.sh` script from [pbs-toolkit](h
 ```bash
 wget https://raw.githubusercontent.com/bentsherman/pbs-toolkit/master/modules/install-nextflow.sh
 chmod +x install-nextflow.sh
-./install-nextflow.sh 20.01.0
+./install-nextflow.sh 20.10.0
 
-module add use.own
-module add nextflow/20.01.0
+module use ${HOME}/modules
+module load nextflow/20.10.0
 nextflow run hello
 ```
 
@@ -253,7 +252,7 @@ profiles {
 			memory = 8.GB
 			time = "24h"
 
-			module = "anaconda3"
+			module = "anaconda3/5.1.0-gcc"
 		}
 	}
 
