@@ -19,16 +19,16 @@ export NXF_WORK="/scratch1/${USER}/work"
 6. Place your Nextflow pipeline in your home directory or your group's zfs directory
 7. Login to your loginvm with your `loginvm` command
 8. Create a screen with the `screen` command
-9. Launch your Nextflow pipeline (with the `pbs` profile)
+9. Launch your Nextflow pipeline (with the `palmetto` profile)
 10. Detach from your screen (Ctrl-A D)
 11. Exit your loginvm
 12. Run `qstat -u ${USER}` every now and then to make sure your pipeline is running
 
 ## Using the Login VM
 
-If you run this Nextflow pipeline with the `standard` profile on a compute node you'll be able to run for up to 72 hours. However if you use the `pbs` profile and have Nextflow submit jobs through `qsub`, the pipeline can run for as long as it needs. The problem is that in order to do this Nextflow must run on the login node for the duration of the workflow run, which will not work because long-running tasks on the login node are killed automatically. You might be able to get away with short runs but anything longer than a few minutes is likely to be killed.
+If you run this Nextflow pipeline with the `standard` profile on a compute node you'll be able to run for up to 72 hours. However if you use the `palmetto` profile and have Nextflow submit jobs through `qsub`, the pipeline can run for as long as it needs. The problem is that you can't submit jobs from a compute node, and you can't run Nextflow on the login node because long-running tasks on the login node are killed automatically. You might be able to get away with short runs but anything longer than a few minutes is likely to be killed.
 
-Fortunately, the Palmetto cluster now has a feature called the [Login VM](https://www.palmetto.clemson.edu/loginvm), which is essentially a dedicated login node that you can provision for yourself. When you request a VM you will receive an IP address which you can use to access the VM via SSH or RDP. On this VM you can do whatever you want, but note that the login VMs have limited resources so you still should not run compute intensive jobs on them. Also, login VMs do not come with a fixed walltime but instead are killed when you release them, and they can be killed automatically by Palmetto if you leave it idle.
+Fortunately, the Palmetto cluster has a feature called the [Login VM](https://www.palmetto.clemson.edu/loginvm), which is essentially a separate login node that you can have all to yourself. When you request a VM you will receive an IP address which you can use to access the VM via SSH or RDP. On this VM you can do whatever you want, but note that the login VMs have limited resources so you still should not run compute intensive jobs on them. Also, login VMs do not come with a fixed walltime but instead are killed when you release them, and they can be killed automatically by Palmetto if you leave it idle.
 
 One quirk of the Palmetto Login VMs is that you must login to the VM once via RDP. Follow the instructions in the Login VM docs to login via RDP client, then log out. Doing this once will ensure that your VM runs indefinitely without being killed for inactivity. From this point on you can access your VM via SSH or via [JupyterLab](https://www.palmetto.clemson.edu/jupyterhub). I recommend using JupyterLab because it is a much easier and more powerful way to use Palmetto in general. You can edit files and view images in the browser but you can also open a terminal and do anything you would normally do through SSH. As it happens, you can SSH into your Login VM from your JupyterLab instance: `ssh <username>@<loginvm-ip-address>`. Furthermore, you can use the `screen` command to create a "virtual" terminal where you can run commands and then leave them running in the backgroud.
 
@@ -36,35 +36,39 @@ So here's the full process: login to JupyterLab, open a terminal, login to your 
 
 ## Using Storage Responsibly
 
-Like most HPC systems, Palmetto a home directory and scratch directories. Your home directory is permanent storage but you only get 100 GB and you're not supposed to run jobs in the home directory because everyone has to share it. On the other hand, the scratch storage is ~100 TB but it is not permanent; files older than 30 days get deleted. So we would like our jobs to use scratch storage while they run, but we need to make sure that our important data ends up in our home directory so that we don't have to worry about it getting deleted. We can configure Nextflow to do this quite easily:
+Like most HPC systems, Palmetto has a home directory and scratch directories. Your home directory is permanent storage but you only get 100 GB and you're not supposed to run jobs in the home directory because everyone has to share it. On the other hand, the scratch storage is ~2 PB but it is not permanent; files older than 30 days get deleted. So we would like our jobs to use scratch storage while they run, but we need to make sure that our important data ends up in our home directory so that we don't have to worry about it getting deleted. With Nextflow there is a simple way to get the best of both worlds:
 
 1. Add this line to your `.bashrc`: `export NXF_WORK="/scratch1/${USER}/work"`
 2. Do everything else in your home directory
 
-This way, all of your code, input data, and final output data will be in your home directory, but the jobs that Nextflow submits will always run in scratch storage. Nextflow will only use the home directory to save published output files, logs, and some cache metadata. And all of the intermediate files created by Nextflow jobs will be automatically deleted by the system as they age. You never even have to touch your scratch directory!
+Now all of your code, input data, and final output data will be in your home directory, but the jobs that Nextflow submits will always run in scratch storage. Nextflow will only use the home directory to save published output files, logs, and some cache metadata. And all of the intermediate files created by Nextflow jobs will be automatically deleted by the system as they age. You never even have to touch your scratch directory!
 
-_Note: If your research group has a zfs directory in `/zfs/lasernode`, you can also use your personal directory in there in lieu of your home directory._
+_Note: If your research group has a shared directory in `/zfs`, you can also use your personal directory in there in lieu of your home directory. To access `/zfs` through the File Browser in JupyterLab, make a symbolic link to `/zfs` in your home directory._
 
 ## Running the Nextflow Pipeline
 
-To run our new pipeline, simply do:
+To run our new pipeline:
 ```bash
 nextflow run main.nf
 ```
 
 This command is the same thing as doing:
 ```bash
-nextflow -c nextflow.config run main.nf -profile pbs
+nextflow -c nextflow.config run main.nf -profile standard
 ```
 
-So by default Nextflow will use the `nextflow.config` in the current directory and the `standard` profile. You can also use a different config file or pipeline script. These commands will run everything on whatever node you are currently on, be that the login node or a login VM or a compute node. To run the pipeline using `qsub`, get a login VM and use the `pbs` profile:
+So by default Nextflow will use the `nextflow.config` in the current directory and the `standard` profile. You can also use a different config file or pipeline script. These commands will run everything on whatever node you are currently on, be that the login node or a login VM or a compute node. To run the pipeline using `qsub`, get a login VM and use the `palmetto` profile:
 ```bash
-nextflow run main.nf -profile pbs
+nextflow run main.nf -profile palmetto
 ```
 
 Now you should see it use the `pbspro` executor, and if you run `qstat -u $USER` in a different terminal, you should see Nextflow jobs queued up.
 
 One more thing: if you launch a pipeline but it fails part of the way through, you can __resume__ the pipeline so that it recovers the jobs that already finished instead of running them again:
 ```bash
-nextflow run main.nf -profile pbs -resume
+nextflow run main.nf -profile palmetto -resume
 ```
+
+## Viewing Results
+
+Nextflow will save any output data based on the `publishDir` directive in each process. Additionally, if enabled, Nextflow can create an execution report, timeline, execution trace, and more, whenever the workflow completes or fails. The execution report is particularly useful here because you can use it to pinpoint failures when they happen. Again, JupyterLab is very helpful here because you can view images and visual reports in the browser instead of downloading them to your local machine first. The execution report is an HTML file, so you must open it in JupyterLab and then select "Trust HTML" to render the entire report.

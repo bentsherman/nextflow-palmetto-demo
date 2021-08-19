@@ -1,6 +1,6 @@
 println """\
 =================================
- K I N C - N F   P I P E L I N E
+ K I N C - P Y   P I P E L I N E
 =================================
 
 Workflow Information:
@@ -47,7 +47,7 @@ process make_input {
 
 	script:
 		"""
-		python ${KINC_PATH}/scripts/make-input-data.py \
+		make-input.py \
 			--n-samples ${params.input.n_samples} \
 			--n-genes ${params.input.n_genes} \
 			--n-classes ${params.input.n_classes} \
@@ -85,7 +85,7 @@ process similarity {
 
 	script:
 		"""
-		python ${KINC_PATH}/scripts/kinc-similarity.py \
+		kinc-similarity.py \
 			--input ${emx_file} \
 			--output ${params.output.cmx_file} \
 			--clusmethod ${params.similarity.clus_method} \
@@ -126,13 +126,13 @@ process threshold {
 		file(cmx_file) from CMX_FILES_FOR_THRESHOLD
 
 	output:
-		file(params.output.rmt_file)
+		file(params.output.rmt_file) into RMT_FILES_FOR_EXTRACT
 
 	script:
 		"""
 		NUM_GENES=\$(expr \$(cat ${emx_file} | wc -l) - 1)
 
-		python ${KINC_PATH}/scripts/kinc-threshold.py \
+		kinc-threshold.py \
 			--input ${cmx_file} \
 			--n-genes \${NUM_GENES} \
 			--method ${params.threshold.method} \
@@ -155,17 +155,20 @@ process extract {
 	input:
 		file(emx_file) from EMX_FILES_FOR_EXTRACT
 		file(cmx_file) from CMX_FILES_FOR_EXTRACT
+		file(rmt_file) from RMT_FILES_FOR_EXTRACT
 
 	output:
 		file(params.output.net_file) into NET_FILES_FROM_EXTRACT
 
 	script:
 		"""
-		python ${KINC_PATH}/scripts/kinc-extract.py \
+		THRESHOLD=`tail -n 1 ${rmt_file}`
+
+		kinc-extract.py \
 			--emx ${emx_file} \
 			--cmx ${cmx_file} \
 			--output ${params.output.net_file} \
-			--mincorr ${params.extract.threshold}
+			--mincorr \${THRESHOLD}
 		"""
 }
 
@@ -187,7 +190,7 @@ process visualize {
 
 	script:
 		"""
-		python ${KINC_PATH}/scripts/visualize.py \
+		make-plots.py \
 			--emx ${emx_file} \
 			--netlist ${net_file} \
 			--output-dir . \
