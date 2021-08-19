@@ -10,9 +10,10 @@ module load anaconda3/5.1.0-gcc
 cd ${PBS_O_WORKDIR}
 
 # compute similarity threshold
+EMX_FILE="example.emx.txt"
 CMX_FILE="example.cmx.txt"
 RMT_FILE="example.rmt.txt"
-NUM_GENES=$(expr $(cat ${EMX_FILE} | wc -l) - 1)
+NUM_GENES=`tail -n +1 ${EMX_FILE} | wc -l`
 METHOD="rmt"
 TSTART=0.99
 TSTEP=0.001

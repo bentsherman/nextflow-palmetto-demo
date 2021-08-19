@@ -64,9 +64,14 @@ nextflow run main.nf -profile palmetto
 
 Now you should see it use the `pbspro` executor, and if you run `qstat -u $USER` in a different terminal, you should see Nextflow jobs queued up.
 
-One more thing: if you launch a pipeline but it fails part of the way through, you can __resume__ the pipeline so that it recovers the jobs that already finished instead of running them again:
+If you launch a pipeline but it fails part of the way through, you can __resume__ the pipeline so that it recovers the jobs that already finished instead of running them again:
 ```bash
 nextflow run main.nf -profile palmetto -resume
+```
+
+You can also specify params on the command-line:
+```bash
+nextflow run main.nf --output_dir results
 ```
 
 ## Viewing Results

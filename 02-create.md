@@ -195,12 +195,10 @@ Often we would like to be able to provide custom options to our code without hav
 __nextflow.config__
 ```
 params {
-    input {
-        n_samples = 1000
-        n_genes = 100
-        n_classes = 2
-        emx_file = "example.emx.txt"
-    }
+    n_samples = 1000
+    n_genes = 100
+    n_classes = 2
+    emx_file = "example.emx.txt"
 
     ...
 }
@@ -210,7 +208,7 @@ __main.nf__
 ```
 process make_input {
     input:
-        val(emx_file) from Channel.value(params.input.emx_file)
+        val(emx_file) from Channel.value(params.emx_file)
 
     output:
         file(emx_file) into EMX_FILES_FROM_MAKE_INPUT
@@ -218,9 +216,9 @@ process make_input {
     script:
         """
         make-input.py \
-            --n-samples ${params.input.n_samples} \
-            --n-genes ${params.input.n_genes} \
-            --n-classes ${params.input.n_classes} \
+            --n-samples ${params.n_samples} \
+            --n-genes ${params.n_genes} \
+            --n-classes ${params.n_classes} \
             --dataset ${emx_file} \
             --transpose
         """
@@ -234,7 +232,7 @@ Now you try to set up the params for the other processes!
 When you execute a Nextflow pipeline, Nextflow creates a `work` directory and executes each process in it's own directory inside `work`, so that each process can be isolated. Any files created by the process will exist in that process directory, so if you want any outputs to show up in the top-level directory, you have to __publish__ them. This part is easy, we just add the `publishDir` directive to each process:
 ```
 process make_input {
-    publishDir "${params.output.dir}"
+    publishDir "${params.output_dir}"
 
     ...
 }
@@ -295,18 +293,18 @@ We can enable these reports in our `nextflow.config`:
 ```
 report {
     enabled = true
-    file = "${params.output.dir}/reports/report.html"
+    file = "${params.output_dir}/reports/report.html"
 }
 
 timeline {
     enabled = true
-    file = "${params.output.dir}/reports/timeline.html"
+    file = "${params.output_dir}/reports/timeline.html"
 }
 
 trace {
     enabled = true
     fields = "task_id,hash,native_id,process,tag,name,status,exit,module,container,cpus,time,disk,memory,attempt,submit,start,complete,duration,realtime,queue,%cpu,%mem,rss,vmem,peak_rss,peak_vmem,rchar,wchar,syscr,syscw,read_bytes,write_bytes"
-    file = "${params.output.dir}/reports/trace.txt"
+    file = "${params.output_dir}/reports/trace.txt"
     raw = true
 }
 ```

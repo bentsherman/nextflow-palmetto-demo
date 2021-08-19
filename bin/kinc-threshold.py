@@ -271,8 +271,9 @@ def rmt(args):
 		# decrement threshold and fail if minimum threshold is reached
 		threshold -= args.tstep
 		if threshold < args.tstop:
-			print('error: could not find an adequate threshold above stopping threshold')
-			sys.exit(0)
+			print('warning: could not find an adequate threshold above stopping threshold')
+			final_threshold = 0
+			break
 
 	return final_threshold
 

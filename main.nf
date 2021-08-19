@@ -13,21 +13,23 @@ Workflow Information:
 Execution Parameters:
 ---------------------
 input:
-  n_samples:    ${params.input.n_samples}
-  n_genes:      ${params.input.n_genes}
-  n_classes:    ${params.input.n_classes}
-  emx_file:     ${params.input.emx_file}
+  n_samples:    ${params.n_samples}
+  n_genes:      ${params.n_genes}
+  n_classes:    ${params.n_classes}
+  emx_file:     ${params.emx_file}
+
 output:
-  dir:          ${params.output.dir}
+  dir:          ${params.output_dir}
+
 similarity
-  clus_method:  ${params.similarity.clus_method}
-  corr_method:  ${params.similarity.corr_method}
+  clusmethod:   ${params.similarity_clusmethod}
+  corrmethod:   ${params.similarity_corrmethod}
+
 threshold:
-  method:       ${params.threshold.method}
-extract:
-  threshold:    ${params.extract.threshold}
-visualize:
-  output_dir:   ${params.visualize.output_dir}
+  method:       ${params.threshold_method}
+
+plots:
+  dir:          ${params.plots_dir}
 """
 
 
@@ -37,10 +39,10 @@ visualize:
  * random expression values.
  */
 process make_input {
-	publishDir "${params.output.dir}"
+	publishDir "${params.output_dir}"
 
 	input:
-		val(emx_file) from Channel.value(params.input.emx_file)
+		val(emx_file) from Channel.value(params.emx_file)
 
 	output:
 		file(emx_file) into EMX_FILES_FROM_MAKE_INPUT
@@ -48,9 +50,9 @@ process make_input {
 	script:
 		"""
 		make-input.py \
-			--n-samples ${params.input.n_samples} \
-			--n-genes ${params.input.n_genes} \
-			--n-classes ${params.input.n_classes} \
+			--n-samples ${params.n_samples} \
+			--n-genes ${params.n_genes} \
+			--n-classes ${params.n_classes} \
 			--dataset ${emx_file} \
 			--transpose
 		"""
@@ -75,29 +77,29 @@ EMX_FILES_FROM_MAKE_INPUT
  * The similiarity process computes a similarity matrix for the input emx file.
  */
 process similarity {
-	publishDir "${params.output.dir}"
+	publishDir "${params.output_dir}"
 
 	input:
 		file(emx_file) from EMX_FILES_FROM_MAKE_INPUT
 
 	output:
-		file(params.output.cmx_file) into CMX_FILES_FROM_SIMILARITY
+		file(params.cmx_file) into CMX_FILES_FROM_SIMILARITY
 
 	script:
 		"""
 		kinc-similarity.py \
 			--input ${emx_file} \
-			--output ${params.output.cmx_file} \
-			--clusmethod ${params.similarity.clus_method} \
-			--corrmethod ${params.similarity.corr_method} \
-			--minexpr=${params.similarity.min_expr} \
-			--minclus ${params.similarity.min_clus} \
-			--maxclus ${params.similarity.max_clus} \
-			--criterion ${params.similarity.criterion} \
-			${params.similarity.preout ? "--preout" : ""} \
-			${params.similarity.postout ? "--postout" : ""} \
-			--mincorr ${params.similarity.min_corr} \
-			--maxcorr ${params.similarity.max_corr}
+			--output ${params.cmx_file} \
+			--clusmethod ${params.similarity_clusmethod} \
+			--corrmethod ${params.similarity_corrmethod} \
+			--minexpr=${params.similarity_minexpr} \
+			--minclus ${params.similarity_minclus} \
+			--maxclus ${params.similarity_maxclus} \
+			--criterion ${params.similarity_criterion} \
+			${params.similarity_preout ? "--preout" : ""} \
+			${params.similarity_postout ? "--postout" : ""} \
+			--mincorr ${params.similarity_mincorr} \
+			--maxcorr ${params.similarity_maxcorr}
 		"""
 }
 
@@ -119,27 +121,27 @@ CMX_FILES_FROM_SIMILARITY
  * and attempts to find a suitable correlation threshold.
  */
 process threshold {
-	publishDir "${params.output.dir}"
+	publishDir "${params.output_dir}"
 
 	input:
 		file(emx_file) from EMX_FILES_FOR_THRESHOLD
 		file(cmx_file) from CMX_FILES_FOR_THRESHOLD
 
 	output:
-		file(params.output.rmt_file) into RMT_FILES_FOR_EXTRACT
+		file(params.rmt_file) into RMT_FILES_FOR_EXTRACT
 
 	script:
 		"""
-		NUM_GENES=\$(expr \$(cat ${emx_file} | wc -l) - 1)
+		NUM_GENES=`tail -n +1 ${emx_file} | wc -l`
 
 		kinc-threshold.py \
 			--input ${cmx_file} \
 			--n-genes \${NUM_GENES} \
-			--method ${params.threshold.method} \
-			--tstart ${params.threshold.tstart} \
-			--tstep ${params.threshold.tstep} \
-			--tstop ${params.threshold.tstop} \
-			&> ${params.output.rmt_file}
+			--method ${params.threshold_method} \
+			--tstart ${params.threshold_tstart} \
+			--tstep ${params.threshold_tstep} \
+			--tstop ${params.threshold_tstop} \
+			&> ${params.rmt_file}
 		"""
 }
 
@@ -150,7 +152,7 @@ process threshold {
  * extracts a network with a given threshold.
  */
 process extract {
-	publishDir "${params.output.dir}"
+	publishDir "${params.output_dir}"
 
 	input:
 		file(emx_file) from EMX_FILES_FOR_EXTRACT
@@ -158,7 +160,7 @@ process extract {
 		file(rmt_file) from RMT_FILES_FOR_EXTRACT
 
 	output:
-		file(params.output.net_file) into NET_FILES_FROM_EXTRACT
+		file(params.net_file) into NET_FILES_FROM_EXTRACT
 
 	script:
 		"""
@@ -167,7 +169,7 @@ process extract {
 		kinc-extract.py \
 			--emx ${emx_file} \
 			--cmx ${cmx_file} \
-			--output ${params.output.net_file} \
+			--output ${params.net_file} \
 			--mincorr \${THRESHOLD}
 		"""
 }
@@ -179,7 +181,7 @@ process extract {
  * pairwise scatter plots as a directory of images.
  */
 process visualize {
-	publishDir "${params.output.dir}/${params.visualize.output_dir}"
+	publishDir "${params.plots_dir}"
 
 	input:
 		file(emx_file) from EMX_FILES_FOR_VISUALIZE

@@ -12,11 +12,13 @@ cd ${PBS_O_WORKDIR}
 # visualize pairwise scatter plots
 EMX_FILE="example.emx.txt"
 NET_FILE="example.net.txt"
-OUTPUT_DIR="plots"
+PLOTS_DIR="plots"
+
+mkdir -p ${PLOTS_DIR}
 
 python3 bin/make-plots.py \
 	--emx ${EMX_FILE} \
 	--netlist ${NET_FILE} \
-	--output-dir ${OUTPUT_DIR} \
+	--output-dir ${PLOTS_DIR} \
 	--corrdist \
 	--pairwise
