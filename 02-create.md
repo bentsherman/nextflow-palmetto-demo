@@ -128,7 +128,7 @@ process make_input {
         N_CLASSES=2
         EMX_FILE="example.emx.txt"
 
-        python3 bin/make-input.py \
+        make-input.py \
             --n-samples \${N_SAMPLES} \
             --n-genes \${N_GENES} \
             --n-classes \${N_CLASSES} \
@@ -138,7 +138,10 @@ process make_input {
 }
 ```
 
-And so on for each process. Note that we had to escape each `$` character to specify that each variable is a Bash variable rather than a Nextflow variable. More on this later.
+And so on for each process. Two small things we changed here:
+
+1. We escaped our Bash variables to distinguish them from Nextflow variables. More on this later.
+2. We call the Python script like a standalone program. Any script in the `bin` directory can be called this way, as long as it has the proper permission bits and shebang. The Python scripts are already set up this way.
 
 ### Data Dependencies
 
@@ -161,7 +164,7 @@ process make_input {
         N_GENES=100
         N_CLASSES=2
 
-        python3 bin/make-input.py \
+        make-input.py \
             --n-samples \${N_SAMPLES} \
             --n-genes \${N_GENES} \
             --n-classes \${N_CLASSES} \
@@ -214,7 +217,7 @@ process make_input {
 
     script:
         """
-        python3 bin/make-input.py \
+        make-input.py \
             --n-samples ${params.input.n_samples} \
             --n-genes ${params.input.n_genes} \
             --n-classes ${params.input.n_classes} \
