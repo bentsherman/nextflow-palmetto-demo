@@ -39,7 +39,7 @@ plots:
  * random expression values.
  */
 process make_input {
-	publishDir "${params.output_dir}"
+	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
 		val(emx_file) from Channel.value(params.emx_file)
@@ -77,7 +77,7 @@ EMX_FILES_FROM_MAKE_INPUT
  * The similiarity process computes a similarity matrix for the input emx file.
  */
 process similarity {
-	publishDir "${params.output_dir}"
+	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
 		file(emx_file) from EMX_FILES_FROM_MAKE_INPUT
@@ -121,7 +121,7 @@ CMX_FILES_FROM_SIMILARITY
  * and attempts to find a suitable correlation threshold.
  */
 process threshold {
-	publishDir "${params.output_dir}"
+	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
 		file(emx_file) from EMX_FILES_FOR_THRESHOLD
@@ -152,7 +152,7 @@ process threshold {
  * extracts a network with a given threshold.
  */
 process extract {
-	publishDir "${params.output_dir}"
+	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
 		file(emx_file) from EMX_FILES_FOR_EXTRACT
@@ -181,7 +181,7 @@ process extract {
  * pairwise scatter plots as a directory of images.
  */
 process visualize {
-	publishDir "${params.plots_dir}"
+	publishDir "${params.plots_dir}", mode: "copy"
 
 	input:
 		file(emx_file) from EMX_FILES_FOR_VISUALIZE
