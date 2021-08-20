@@ -24,10 +24,10 @@ Alternatively, you can use the `install-nextflow.sh` script from [pbs-toolkit](h
 ```bash
 wget https://raw.githubusercontent.com/bentsherman/pbs-toolkit/master/modules/install-nextflow.sh
 chmod +x install-nextflow.sh
-./install-nextflow.sh 20.10.0
+./install-nextflow.sh 21.04.3
 
 module use ${HOME}/modules
-module load nextflow/20.10.0
+module load nextflow/21.04.3
 nextflow run hello
 ```
 
