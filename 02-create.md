@@ -38,27 +38,27 @@ Now let's start with an example workflow that we will convert into a Nextflow pi
 To run the entire workflow we would have to do the following:
 ```bash
 # create synthetic input dataset
-qsub kinc-make-inputs.sh
+qsub pbs/kinc-make-inputs.sh
 
 # (wait for job to finish)
 
 # perform similarity step
-qsub kinc-similarity.sh
+qsub pbs/kinc-similarity.sh
 
 # (wait for job to finish)
 
 # perform threshold step
-qsub kinc-threshold.sh
+qsub pbs/kinc-threshold.sh
 
 # (wait for job to finish)
 
 # perform extract step
-qsub kinc-extract.sh
+qsub pbs/kinc-extract.sh
 
 # (wait for job to finish)
 
 # make plots of co-expression network
-qsub kinc-make-plots.sh
+qsub pbs/kinc-make-plots.sh
 ```
 
 As you can see, this process would be very tiresome. We essentially have to _babysit_ the workflow from beginning to end, waiting for each step to finish so we can submit the next one, backtracking any time something fails. All of this work will produce a single co-expression network. Can you imagine if we wanted to construct 100 different networks? It would be a nightmare.
@@ -67,7 +67,7 @@ Now our example workflow is small enough that we could just have one job script 
 
 ## Creating a Nextflow Pipeline
 
-In this section we will walk you through the process of converting our job scripts into a Nextflow pipeline at a high level. For more detailed information, refer to the [Nextflow documentation](https://www.nextflow.io/docs/latest/index.html).
+In this section we will walk you through the process of converting our job scripts into a Nextflow pipeline at a high level.
 
 ### Processes
 
@@ -97,7 +97,7 @@ process extract {
   ...
 }
 
-process make-plots {
+process make_plots {
   ...
 }
 ```
@@ -145,18 +145,14 @@ And so on for each process. Two small things we changed here:
 
 ### Data Dependencies
 
-This part requires you to think a bit differently. When we ran the job scripts, we handled data dependencies by simply running each step in the correct order. Nextflow, on the other hand, uses a mechanism called __channels__ to automatically determine the order of tasks. A channel is essentially a queue which passes data from one process to another. It can contain literal values like numbers and strings and lists, or it can contain files. Each process can have input channels and output channels. When all of the input channels for a process have a value, Nextflow takes a value out of each channel and launches the process with those values, repeating until one of the channels are empty. When a process finishes, Nextflow puts the each process output into its corresponding channel (if it has one) which will in turn feed into another process.
-
-In other words, channels define the __data dependencies__ between processes, and Nextflow uses them to determine when to launch tasks for each process, regardless of the order in which we define them in the pipeline script. In our case, the channels will cause Nextflow to launch each process one after the other, but as an example we could modify the pipeline to create multiple input files and process each input file in parallel.
-
-Let's keep working on the `make_input` process. This step creates an expression matrix which is used by downstream processes, so we'll provide the emx filename as an input and the emx file as an output:
+When using the job scripts, we simply run each step in order, and since everything is in the same directory, every script has access to every data file. In Nextflow, since we define each step in its own "process", we must explicitly define the inputs and outputs for each process. Once we have defined all of the steps, we will be able to hook them up, but for now, let's just figure out what we need to do for the `make_input` process. This step takes a filename and creates an expression matrix with that name, so we will define the inputs and outputs as follows:
 ```
 process make_input {
     input:
-        val(emx_file) from Channel.value("example.emx.txt")
+        val(emx_file)
 
     output:
-        file(emx_file) into EMX_FILES_FROM_MAKE_INPUT
+        path(emx_file), emit: emx_files
 
     script:
         """
@@ -174,19 +170,52 @@ process make_input {
 }
 ```
 
-The input channel contains a single value, the name of the expression matrix, so this process will execute once. The output channel contains the emx file that is created. Notice that we say `${emx_file}` to denote that `emx_file` is a Nextflow variable and not a Bash variable. Think of the script as a template: each time Nextflow launches an instance of this process, it populates this script with the values of the Nextflow variables for that instance. For example, if we wanted to try the idea we said earlier and create multiple input files in parallel, all we would have to do is modify the input channel to provide multiple values. Nextflow would launch a separate task for each filename, so the script for each task would contain its corresponding filename in place of `${emx_file}`.
+The input is a string, so we declare it as a `val`. The output is an actual file (with the same name as the input) so we declare it as a `path`. Furthermore, we declare that the output be available to other processes under the name `emx_files`. We'll see how this part is used in a moment.
 
-One more important point: the emx file created by `make_input` is used by multiple downstream processes, but you can only use a Nextflow channel twice, once for where it comes from and once for where it goes to. So to pass the emx file to multiple destinations, we have to fork it into multiple channels:
+Notice that we say `${emx_file}` in the script to denote that `emx_file` is a Nextflow variable and not a Bash variable. Think of the script as a template: each time Nextflow launches an instance of this process, it populates this script with the values of the Nextflow variables for that instance. For example, if we configured the workflow to create multiple input files in parallel, Nextflow would launch a separate task for each filename, so the script for each task would contain its corresponding filename in place of `${emx_file}`.
+
+Now see if you can define the remaining steps based on this example.
+
+### Defining the Workflow
+
+Once you have defined a process for each step, all that's left is to hook them up to each other. To do this, we define a __workflow__ block:
 ```
-EMX_FILES_FROM_MAKE_INPUT
-    .into {
-        EMX_FILES_FOR_SIMILARITY;
-        EMX_FILES_FOR_THRESHOLD;
-        EMX_FILES_FOR_EXTRACT
-    }
+nextflow.enable.dsl=2
+
+workflow {
+  ...
+}
 ```
 
-This code is an example of an __operator__, which is any function that transforms one channel into another. We define this part in the pipeline script but after the `make_input` process. Now whenever an emx file comes out of `make_input`, it will be sent to each process that needs it. Easy! Now see if you can hook up the rest of the processes.
+In comparison to other scripting languages, the workflow block is kind of like the "main" function and processes are kind of like functions. Nextflow uses a mechanism called __channels__ to pass data between processes. A channel can contain any basic data type, including numbers, strings, lists, maps, and files. In a workflow block, you can define channels from literal values, you can pass channels as inputs to a process, and you can access the outputs of a process as channels. So channels are basically pipes that allow you to pass data from one process to another.
+
+In the first part of the workflow, we want to run `make_input` to create a single emx file called "example.emx.txt". Here is how we write it:
+```
+workflow {
+    emx_files = Channel.fromList([ "example.emx.txt" ])
+
+    make_input(emx_files)
+    emx_files = make_input.out.emx_files
+}
+```
+
+We define a channel with a single value in it, we call `make_input` like a function, with the `emx_files` channel as an input, and we set `emx_files` to the output channel of `make_input`.
+
+This code looks a lot like normal code, but there are a few key differences to understand here:
+
+- A process can only be invoked once in a workflow block.
+
+- When a process is invoked, Nextflow will execute a separate instance of the process (i.e. task) for each item in the input channel, in parallel if possible.
+
+- If a process has multiple input channels, each task consumes a value from each channel. Just like pipes!
+
+- If two processes are invoked, and neither process depends on the other, Nextflow will automatically execute tasks for both processes in parallel.
+
+In other words, a Nextflow workflow is not a list of step-by-step instructions, rather it is a _network of processes and channels_. When you run the pipeline, Nextflow builds this network, then it starts feeding data into the input channels, and then it continuously executes tasks in parallel until there is nothing left to execute. This approach works the same for 1 input file or 10,000 input files, on a computer with 1 CPU or a cluster with 10,000 CPUs.
+
+But before we are overwhelmed by the immense power of dataflow programming, first let's finish writing this workflow. See if you can define the remaining steps based on the above example.
+
+_Note: We include the `nextflow.enable.dsl=2` to enable Nextflow's DSL 2 syntax, which allows us to use features like the workflow block. In the original Nextflow syntax, there is no workflow block but you have to define a lot of the same channel logic inside and between the processes, which is a real mess. We recommend you stick with DSL 2._
 
 ### Configuration Parameters
 
@@ -206,12 +235,17 @@ params {
 
 __main.nf__
 ```
+workflow {
+    emx_files = Channel.fromList([ params.emx_file ])
+    ...
+}
+
 process make_input {
     input:
-        val(emx_file) from Channel.value(params.emx_file)
+        val(emx_file)
 
     output:
-        file(emx_file) into EMX_FILES_FROM_MAKE_INPUT
+        path(emx_file), emit: emx_files
 
     script:
         """
@@ -227,7 +261,7 @@ process make_input {
 
 Now you try to set up the params for the other processes!
 
-### Inputs and Outputs
+### Saving Output Data
 
 When you execute a Nextflow pipeline, Nextflow creates a `work` directory and executes each process in it's own directory inside `work`, so that each process can be isolated. Any files created by the process will exist in that process directory, so if you want any outputs to show up in the top-level directory, you have to __publish__ them. This part is easy, we just add the `publishDir` directive to each process:
 ```
@@ -238,7 +272,7 @@ process make_input {
 }
 ```
 
-This way, every output file as defined by an output channel will also be sent to the top-level output directory via hardlink. You can further configure this directive to do a copy or symlink, or only publish certain types of files, and so on.
+This way, every file defined in a process output will be saved to the top-level output directory via hardlink. You can further configure this directive to do a copy or symlink, or only publish certain types of files, and so on.
 
 ### Defining an Error Strategy
 
@@ -317,4 +351,4 @@ The completed Nextflow pipeline files for this example are included in this repo
 
 This example showed you how to convert a basic workflow into a Nextflow pipeline. For more in-depth examples, check out the Nextflow pipelines at the [SystemsGenetics](https://github.com/SystemsGenetics) Github org as well as [nf-core](https://github.com/nf-core).
 
-The example pipeline here is based on the [KINC-nf](https://github.com/SystemsGenetics/KINC-nf) pipeline. Consult the original pipeline to see how to use more advanced features, including chunking and merging, running MPI jobs, using GPUs, using Docker / Singularity, and more.
+The example pipeline here is based on the [KINC-nf](https://github.com/SystemsGenetics/KINC-nf) pipeline. Consult the original pipeline to see how to use more advanced features, including chunking and merging, running MPI jobs, using GPUs, using Docker / Singularity, and more. Refer to the [Nextflow documentation](https://www.nextflow.io/docs/latest/index.html) for more information.

@@ -1,4 +1,11 @@
-println """\
+#!/usr/bin/env nextflow
+
+nextflow.enable.dsl=2
+
+
+
+println \
+"""
 =================================
  K I N C - P Y   P I P E L I N E
 =================================
@@ -34,6 +41,31 @@ plots:
 
 
 
+workflow {
+	// generate a synthetic dataset
+	emx_files = Channel.fromList([ params.emx_file ])
+
+	make_input(emx_files)
+	emx_files = make_input.out.emx_files
+
+	// compute similarity matrix
+	similarity(emx_files)
+	cmx_files = similarity.out.cmx_files
+
+	// compute similarity threshold
+	threshold(emx_files, cmx_files)
+	rmt_files = threshold.out.rmt_files
+
+	// extract co-expression network
+	extract(emx_files, cmx_files, rmt_files)
+	net_files = extract.out.net_files
+
+	// visualize pairwise scatter plots
+	make_plots(emx_files, net_files)
+}
+
+
+
 /**
  * The make_input process generates an input expression matrix with
  * random expression values.
@@ -42,10 +74,10 @@ process make_input {
 	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
-		val(emx_file) from Channel.value(params.emx_file)
+		val(emx_file)
 
 	output:
-		file(emx_file) into EMX_FILES_FROM_MAKE_INPUT
+		path(emx_file), emit: emx_files
 
 	script:
 		"""
@@ -61,29 +93,16 @@ process make_input {
 
 
 /**
- * Send emx file to each process that uses it.
- */
-EMX_FILES_FROM_MAKE_INPUT
-	.into {
-		EMX_FILES_FOR_SIMILARITY;
-		EMX_FILES_FOR_THRESHOLD;
-		EMX_FILES_FOR_EXTRACT;
-		EMX_FILES_FOR_VISUALIZE
-	}
-
-
-
-/**
  * The similiarity process computes a similarity matrix for the input emx file.
  */
 process similarity {
 	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
-		file(emx_file) from EMX_FILES_FROM_MAKE_INPUT
+		path(emx_file)
 
 	output:
-		file(params.cmx_file) into CMX_FILES_FROM_SIMILARITY
+		path(params.cmx_file), emit: cmx_files
 
 	script:
 		"""
@@ -106,17 +125,6 @@ process similarity {
 
 
 /**
- * Send cmx file to all processes that use it.
- */
-CMX_FILES_FROM_SIMILARITY
-	.into {
-		CMX_FILES_FOR_THRESHOLD;
-		CMX_FILES_FOR_EXTRACT
-	}
-
-
-
-/**
  * The threshold process takes the correlation matrix from similarity
  * and attempts to find a suitable correlation threshold.
  */
@@ -124,11 +132,11 @@ process threshold {
 	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
-		file(emx_file) from EMX_FILES_FOR_THRESHOLD
-		file(cmx_file) from CMX_FILES_FOR_THRESHOLD
+		path(emx_file)
+		path(cmx_file)
 
 	output:
-		file(params.rmt_file) into RMT_FILES_FOR_EXTRACT
+		path(params.rmt_file), emit: rmt_files
 
 	script:
 		"""
@@ -155,12 +163,12 @@ process extract {
 	publishDir "${params.output_dir}", mode: "copy"
 
 	input:
-		file(emx_file) from EMX_FILES_FOR_EXTRACT
-		file(cmx_file) from CMX_FILES_FOR_EXTRACT
-		file(rmt_file) from RMT_FILES_FOR_EXTRACT
+		path(emx_file)
+		path(cmx_file)
+		path(rmt_file)
 
 	output:
-		file(params.net_file) into NET_FILES_FROM_EXTRACT
+		path(params.net_file), emit: net_files
 
 	script:
 		"""
@@ -177,18 +185,18 @@ process extract {
 
 
 /**
- * The visualize process takes extracted network files and saves the
+ * The make_plots process takes extracted network files and saves the
  * pairwise scatter plots as a directory of images.
  */
-process visualize {
+process make_plots {
 	publishDir "${params.plots_dir}", mode: "copy"
 
 	input:
-		file(emx_file) from EMX_FILES_FOR_VISUALIZE
-		file(net_file) from NET_FILES_FROM_EXTRACT
+		path(emx_file)
+		path(net_file)
 
 	output:
-		file("*.png")
+		path("*.png")
 
 	script:
 		"""
